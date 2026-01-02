@@ -1,73 +1,142 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Dhall Ecom
 
-## Getting Started
+A role-based company dashboard for managing **products, inventory, users, and analytics** — all in one place.
 
-First, run the development server:
+Dhall Ecom allows companies to register, create a private dashboard, onboard team members with granular permissions, and visualize business performance through clean and interactive analytics.
+
+---
+
+## 🌐 Live Demo
+
+👉 **Live Website:** _[Add working deployment link here]_
+
+---
+
+## ✨ Features
+
+### 🏢 Company-Based Architecture
+- Each company gets its **own isolated dashboard**
+- Secure, multi-user environment per company
+
+### 👑 Owner & Role-Based Access
+- Company **Owner** can:
+  - Add / remove users
+  - Assign permissions
+  - Manage company-level data
+
+### 🔐 Permission System
+Each user can have any combination of the following permissions:
+- **manageProducts** → Add, update, delete products
+- **manageInventory** → Manage product stock levels
+- **manageUsers** → Add users, update permissions, remove users
+
+Users without permissions can still:
+- View products
+- View inventory details
+- View analytics and reports
+
+### 📦 Product Management
+- Add, edit, and delete products
+- Product images uploaded via Cloudinary
+
+### 📊 Inventory Management
+- Track real-time stock
+- Automatic inventory updates
+- Low-stock and out-of-stock handling
+
+### 📈 Analytics Dashboard
+- Revenue trends
+- Orders over time
+- Product-level performance
+- Inventory movement
+- Interactive charts and clean UI
+
+---
+
+## 🧱 Tech Stack
+
+### Frontend & Backend
+- **Next.js** (App Router)
+
+### Data Fetching
+- **SWR**
+
+### Form Validation
+- **Zod**
+
+### Data Visualization
+- **Chart.js**
+
+### Image Storage
+- **Cloudinary**
+
+### Database
+- **PostgreSQL**
+- **Supabase**
+
+---
+
+## 🔄 Application Flow
+
+1. Company owner signs up and registers a company
+2. A private dashboard is created for the company
+3. Owner adds users and assigns permissions
+4. Users operate within assigned permissions
+5. Analytics available for company and products
+
+---
+
+## 🧪 Dummy Credentials (For Testing)
+
+### 👑 Owner
+- **Email:** owner@dhallecom.com  
+- **Password:** owner123  
+- **Permissions:** All permissions enabled
+
+---
+
+### 👤 Product Manager
+- **Email:** products@dhallecom.com  
+- **Password:** product123  
+- **Permissions:**
+  - manageProducts ✅
+  - manageInventory ❌
+  - manageUsers ❌
+
+---
+
+### 👤 Inventory Manager
+- **Email:** inventory@dhallecom.com  
+- **Password:** inventory123  
+- **Permissions:**
+  - manageProducts ❌
+  - manageInventory ✅
+  - manageUsers ❌
+
+---
+
+### 👤 Admin Assistant
+- **Email:** admin@dhallecom.com  
+- **Password:** admin123  
+- **Permissions:**
+  - manageProducts ✅
+  - manageInventory ✅
+  - manageUsers ❌
+
+---
+
+### 👤 Viewer
+- **Email:** viewer@dhallecom.com  
+- **Password:** viewer123  
+- **Permissions:**
+  - View-only access
+
+---
+
+## 🚀 Local Development Setup
 
 ```bash
+git clone https://github.com/your-username/dhall-ecom.git
+cd dhall-ecom
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Dhall Ecom Admin UI Guidelines
-
-- **Brand Gradient**: Indigo → Violet for primary actions and highlights.
-- **Cards**: `rounded-2xl`, subtle border, `bg-white/80` with backdrop blur.
-- **Inputs**: Rounded, light border, strong focus (`focus:border-indigo-500`, `focus:shadow-md`).
-- **Buttons**: Primary uses gradient; outline for secondary actions.
-- **Layout**: Centered content, gentle background gradient for auth screens.
-- **Micro-interactions**: Small blobs/accents for visual polish; keep subtle.
-
-### Reusable Components
-
-- [components/ui/Button.jsx](components/ui/Button.jsx)
-- [components/ui/Input.jsx](components/ui/Input.jsx)
-- [components/ui/Label.jsx](components/ui/Label.jsx)
-- [components/ui/Card.jsx](components/ui/Card.jsx)
-
-Example usage:
-
-```jsx
-import Card from "@/components/ui/Card";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-import Label from "@/components/ui/Label";
-
-export default function Example() {
-	return (
-		<div className="min-h-svh flex items-center justify-center p-6">
-			<Card className="p-8 w-full max-w-md">
-				<Label htmlFor="email">Email</Label>
-				<Input id="email" type="email" className="mt-1" />
-				<Button className="mt-4">Continue</Button>
-			</Card>
-		</div>
-	);
-}
-```
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

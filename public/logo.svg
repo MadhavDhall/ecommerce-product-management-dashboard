@@ -1,0 +1,20 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dhall Ecom">
+  <defs>
+    <linearGradient id="g" x1="18" y1="18" x2="110" y2="110" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4F46E5" />
+      <stop offset="1" stop-color="#7C3AED" />
+    </linearGradient>
+    <linearGradient id="h" x1="24" y1="24" x2="104" y2="104" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.22" />
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+
+  <rect x="12" y="12" width="104" height="104" rx="26" fill="url(#g)" />
+  <rect x="18" y="18" width="92" height="92" rx="22" fill="url(#h)" />
+
+  <path
+    fill="#FFFFFF"
+    d="M48 38h24c20.4 0 34 13.4 34 32s-13.6 32-34 32H48V38zm14 14v36h10c11.4 0 19.6-7.8 19.6-18S83.4 52 72 52H62z"
+  />
+</svg>

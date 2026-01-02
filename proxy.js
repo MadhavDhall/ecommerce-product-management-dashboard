@@ -1,25 +1,32 @@
 import { NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
 
 export function proxy(request) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get("token")?.value;
-  console.log(token, pathname);
-
-  // check if token is valid jwt token 
-  const verifyToken = jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) {
-      return null;
-    }
-    return decoded;
-  });
-  console.log(verifyToken);
 
 
-  // Redirect unauthenticated users away from protected pages
-  if (pathname.startsWith("/protected") && !token) {
+  // If trying to access /dashboard without a valid token, redirect to /login
+  if (pathname.startsWith("/dashboard") && !token) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
+
+  if (pathname.startsWith("/login") && token) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // check if token is valid jwt token 
+  // const verifyToken = jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+  //   if (err) {
+  //     return null;
+  //   }
+  //   return decoded;
+  // });
+
+  // if (pathname.startsWith("/dashboard/manageUsers") && !verifyToken.manageUsers) {
+  //   // redirect to the previous url or /dashboard if no referrer
+  //   const referer = request.headers.get("referer");
+  //   return NextResponse.redirect(new URL(referer || "/dashboard", request.url));
+  // }
 
   return NextResponse.next();
 }

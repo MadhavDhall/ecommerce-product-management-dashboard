@@ -1,21 +1,14 @@
-const mongoose = require("mongoose");
+import { createClient } from '@supabase/supabase-js'
 
-const connectDB = async () => {
-    if (mongoose.connections[0].readyState) {
-        console.log("Already connected to the database");
-        return;
-    }
+const supabaseUrl = process.env.SUPABASE_URL || 'https://sjhrlfxkhlabvzhxiqrc.supabase.co'
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY
 
-    try {
-        await mongoose.connect(process.env.MONGODB_URI, {
-            // useNewUrlParser: true,
-            // useUnifiedTopology: true,
-        });
-        console.log("Connected to the database");
-    } catch (error) {
-        console.error("Database connection error:", error);
-        throw error;
-    }
+if (!supabaseUrl || !supabaseKey) {
+    console.warn('[db/connection] Missing SUPABASE_URL or key env. Supabase client may fail.')
 }
 
-module.exports = connectDB;
+const supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false },
+})
+
+export default supabase;
