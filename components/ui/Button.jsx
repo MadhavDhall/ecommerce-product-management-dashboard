@@ -1,4 +1,6 @@
-export default function Button({ children, className = "", variant = "primary", ...props }) {
+import { cloneElement, isValidElement } from "react";
+
+export default function Button({ children, className = "", variant = "primary", asChild = false, ...props }) {
     const base = "inline-flex items-center justify-center rounded-lg font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed";
     const sizes = "px-4 py-2.5 text-sm";
     const variants = {
@@ -7,6 +9,15 @@ export default function Button({ children, className = "", variant = "primary", 
         subtle: "bg-gray-100 text-gray-900 hover:bg-gray-200",
     };
     const classes = [base, sizes, variants[variant] || variants.primary, className].join(" ");
+
+    if (asChild && isValidElement(children)) {
+        const childClassName = children.props?.className || "";
+        return cloneElement(children, {
+            ...props,
+            className: [classes, childClassName].filter(Boolean).join(" "),
+        });
+    }
+
     return (
         <button className={classes} {...props}>
             {children}

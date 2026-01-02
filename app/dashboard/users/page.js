@@ -149,9 +149,9 @@ export default function UsersPage() {
         <>
             <div className="flex items-center justify-between">
                 <h1 className="text-lg font-semibold text-gray-900">Users</h1>
-                <Link href="/dashboard/manageUsers/new">
-                    <Button>Add User</Button>
-                </Link>
+                <Button asChild>
+                    <Link href="/dashboard/users/new">Add User</Link>
+                </Button>
             </div>
             <Card className="mt-4 overflow-x-auto">
                 {usersLoading ? (

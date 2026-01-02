@@ -22,15 +22,15 @@ export default function NotFound() {
                         </p>
 
                         <div className="mt-6 grid w-full gap-3 sm:grid-cols-3">
-                            <Link href="/" className="w-full">
-                                <Button variant="outline" className="w-full">Go Home</Button>
-                            </Link>
-                            <Link href="/dashboard" className="w-full">
-                                <Button className="w-full">Open Dashboard</Button>
-                            </Link>
-                            <Link href="/register" className="w-full">
-                                <Button variant="subtle" className="w-full">Get Started</Button>
-                            </Link>
+                            <Button asChild variant="outline" className="w-full">
+                                <Link href="/">Go Home</Link>
+                            </Button>
+                            <Button asChild className="w-full">
+                                <Link href="/dashboard">Open Dashboard</Link>
+                            </Button>
+                            <Button asChild variant="subtle" className="w-full">
+                                <Link href="/register">Get Started</Link>
+                            </Button>
                         </div>
 
                         <div className="mt-6 w-full rounded-2xl border border-gray-200 bg-gray-50 p-4 text-left">

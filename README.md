@@ -8,7 +8,7 @@ Dhall Ecom allows companies to register, create a private dashboard, onboard tea
 
 ## 🌐 Live Demo
 
-👉 **Live Website:** _[Add working deployment link here]_
+👉 **Live Website:** <a href="https://dhall-ecom.vercel.app/" target="_blank" rel="noopener noreferrer">https://dhall-ecom.vercel.app/</a>
 
 ---
 
@@ -89,15 +89,15 @@ Users without permissions can still:
 ## 🧪 Dummy Credentials (For Testing)
 
 ### 👑 Owner
-- **Email:** owner@dhallecom.com  
-- **Password:** owner123  
+- **Email:** madhavdhall6@gmail.com
+- **Password:** madhav
 - **Permissions:** All permissions enabled
 
 ---
 
 ### 👤 Product Manager
-- **Email:** products@dhallecom.com  
-- **Password:** product123  
+- **Email:** madhavdhall6@gmail.co  
+- **Password:** madhav  
 - **Permissions:**
   - manageProducts ✅
   - manageInventory ❌
@@ -106,8 +106,8 @@ Users without permissions can still:
 ---
 
 ### 👤 Inventory Manager
-- **Email:** inventory@dhallecom.com  
-- **Password:** inventory123  
+- **Email:** inventory@gmail.com  
+- **Password:** inventory  
 - **Permissions:**
   - manageProducts ❌
   - manageInventory ✅
@@ -116,8 +116,8 @@ Users without permissions can still:
 ---
 
 ### 👤 Admin Assistant
-- **Email:** admin@dhallecom.com  
-- **Password:** admin123  
+- **Email:** assistant@gmail.com 
+- **Password:** assistant  
 - **Permissions:**
   - manageProducts ✅
   - manageInventory ✅
@@ -126,8 +126,8 @@ Users without permissions can still:
 ---
 
 ### 👤 Viewer
-- **Email:** viewer@dhallecom.com  
-- **Password:** viewer123  
+- **Email:** viewer@gmail.com  
+- **Password:** viewer  
 - **Permissions:**
   - View-only access
 

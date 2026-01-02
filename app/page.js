@@ -102,9 +102,9 @@ export default function Home() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <Link href="/register">
-              <Button>Get Started</Button>
-            </Link>
+            <Button asChild>
+              <Link href="/register">Get Started</Link>
+            </Button>
           </div>
         </div>
       </header>
@@ -132,12 +132,12 @@ export default function Home() {
                 </p>
 
                 <div className="mt-7 flex flex-wrap items-center gap-3">
-                  <Link href="/register">
-                    <Button>Get Started</Button>
-                  </Link>
-                  <Link href="#features">
-                    <Button variant="outline">Explore Features</Button>
-                  </Link>
+                  <Button asChild>
+                    <Link href="/register">Get Started</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href="#features">Explore Features</Link>
+                  </Button>
                 </div>
 
                 <div className="mt-8 grid grid-cols-3 gap-3">
