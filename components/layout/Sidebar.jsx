@@ -3,21 +3,60 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@/components/context/UserContext";
+import { preload } from "swr";
+import { useRef } from "react";
+
+const fetcher = async (url) => {
+    const res = await fetch(url, { method: "GET" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        const err = new Error(json?.error || "Request failed");
+        err.status = res.status;
+        err.data = json;
+        throw err;
+    }
+    return json;
+};
 
 const baseNavItems = [
-    { name: "Overview", href: "/dashboard", icon: OverviewIcon },
-    { name: "Products", href: "/dashboard/products", icon: BoxIcon },
-    { name: "Inventory", href: "/dashboard/inventory", icon: ShelvesIcon },
-    { name: "Reviews", href: "/dashboard/reviews", icon: StarIcon },
+    {
+        name: "Overview",
+        href: "/dashboard",
+        icon: OverviewIcon,
+        preloadUrls: [
+            "/api/products/count",
+            "/api/inventory/count",
+            "/api/orders/count",
+            "/api/products",
+            "/api/orders",
+            "/api/inventory",
+        ],
+    },
+    { name: "Products", href: "/dashboard/products", icon: BoxIcon, preloadUrls: ["/api/products"] },
+    { name: "Inventory", href: "/dashboard/inventory", icon: ShelvesIcon, preloadUrls: ["/api/inventory"] },
+    { name: "Reviews", href: "/dashboard/reviews", icon: StarIcon, preloadUrls: ["/api/reviews"] },
 ];
 
 export default function Sidebar({ onNavigate }) {
     const pathname = usePathname();
     const { user } = useUser();
+    const preloadedKeysRef = useRef(new Set());
+
+    const preloadKeys = (keys) => {
+        for (const key of keys || []) {
+            if (!key) continue;
+            if (preloadedKeysRef.current.has(key)) continue;
+            preloadedKeysRef.current.add(key);
+            Promise.resolve(preload(key, fetcher)).catch(() => {
+                // allow retrying later if preload failed
+                preloadedKeysRef.current.delete(key);
+            });
+        }
+    };
 
     const navItems = [...baseNavItems];
     if (user?.manageUsers) {
-        navItems.push({ name: "Users", href: "/dashboard/users", icon: UsersIcon });
+        navItems.push({ name: "Users", href: "/dashboard/users", icon: UsersIcon, preloadUrls: ["/api/users"] });
     }
 
     return (
@@ -33,11 +72,14 @@ export default function Sidebar({ onNavigate }) {
                 <ul className="space-y-1">
                     {navItems.map((item) => {
                         const active = pathname === item.href;
+                        const canPreload = Array.isArray(item.preloadUrls) && item.preloadUrls.length > 0;
                         return (
                             <li key={item.href}>
                                 <Link
                                     href={item.href}
                                     onClick={onNavigate}
+                                    onMouseEnter={canPreload ? () => preloadKeys(item.preloadUrls) : undefined}
+                                    onFocus={canPreload ? () => preloadKeys(item.preloadUrls) : undefined}
                                     className={[
                                         "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                                         active

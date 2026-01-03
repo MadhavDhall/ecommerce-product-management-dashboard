@@ -14,20 +14,6 @@ export function proxy(request) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // check if token is valid jwt token 
-  // const verifyToken = jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-  //   if (err) {
-  //     return null;
-  //   }
-  //   return decoded;
-  // });
-
-  // if (pathname.startsWith("/dashboard/manageUsers") && !verifyToken.manageUsers) {
-  //   // redirect to the previous url or /dashboard if no referrer
-  //   const referer = request.headers.get("referer");
-  //   return NextResponse.redirect(new URL(referer || "/dashboard", request.url));
-  // }
-
   return NextResponse.next();
 }
 

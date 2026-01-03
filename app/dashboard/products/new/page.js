@@ -8,6 +8,7 @@ import { useSWRConfig } from "swr";
 import Button from "@/components/ui/Button";
 import { useUser } from "@/components/context/UserContext";
 import ProductForm from "@/components/products/ProductForm";
+import Skeleton from "@/components/ui/Skeleton";
 
 export default function NewProductPage() {
     const router = useRouter();
@@ -30,8 +31,7 @@ export default function NewProductPage() {
 
     const { data: categoriesData, error: categoriesError, isLoading: categoriesLoading } = useSWR(
         "/api/categories",
-        fetcher,
-        { revalidateOnFocus: false }
+        fetcher
     );
 
     useEffect(() => {
@@ -47,7 +47,7 @@ export default function NewProductPage() {
     if (loading || (!canManageProducts && !submitted)) {
         return (
             <div className="text-sm text-gray-600">
-                {loading ? "Loading…" : "Redirecting…"}
+                {loading ? <Skeleton className="h-4 w-24" /> : "Redirecting…"}
             </div>
         );
     }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import Card from "@/components/ui/Card";
+import Skeleton from "@/components/ui/Skeleton";
 
 import {
     Chart,
@@ -57,15 +58,58 @@ const hexToRgb = (hex) => {
     return { r: 79, g: 70, b: 229 };
 };
 
-const lerp = (a, b, t) => a + (b - a) * t;
+const rgbToHsl = ({ r, g, b }) => {
+    // r,g,b in [0,255]
+    const rn = (Number(r) || 0) / 255;
+    const gn = (Number(g) || 0) / 255;
+    const bn = (Number(b) || 0) / 255;
 
-const mixHex = (aHex, bHex, t) => {
-    const a = hexToRgb(aHex);
-    const b = hexToRgb(bHex);
-    const r = Math.round(lerp(a.r, b.r, t));
-    const g = Math.round(lerp(a.g, b.g, t));
-    const b2 = Math.round(lerp(a.b, b.b, t));
-    return `rgb(${r} ${g} ${b2})`;
+    const max = Math.max(rn, gn, bn);
+    const min = Math.min(rn, gn, bn);
+    const delta = max - min;
+
+    let h = 0;
+    let s = 0;
+    const l = (max + min) / 2;
+
+    if (delta !== 0) {
+        s = delta / (1 - Math.abs(2 * l - 1));
+        switch (max) {
+            case rn:
+                h = ((gn - bn) / delta) % 6;
+                break;
+            case gn:
+                h = (bn - rn) / delta + 2;
+                break;
+            default:
+                h = (rn - gn) / delta + 4;
+                break;
+        }
+        h = Math.round(h * 60);
+        if (h < 0) h += 360;
+    }
+
+    return {
+        h,
+        s: Math.round(s * 100),
+        l: Math.round(l * 100),
+    };
+};
+
+const hslCss = (h, s, l, a = 1) => `hsl(${Math.round(h)} ${Math.round(s)}% ${Math.round(l)}% / ${a})`;
+
+const makePalette = (count, { baseHue = 250, s = 72, l = 52, alpha = 0.85 } = {}) => {
+    // Golden-angle hue stepping gives visually distinct colors.
+    const goldenAngle = 137.508;
+    const n = Math.max(1, Number(count) || 1);
+    const colors = [];
+
+    for (let i = 0; i < n; i++) {
+        const hue = (baseHue + i * goldenAngle) % 360;
+        colors.push(hslCss(hue, s, l, alpha));
+    }
+
+    return colors;
 };
 
 const formatDayKey = (iso) => {
@@ -216,14 +260,18 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
         destroyCharts();
 
         const { start, end } = getBrandColors();
+        const brandHsl = rgbToHsl(hexToRgb(start));
+        const baseHue = Number.isFinite(brandHsl.h) ? brandHsl.h : 250;
+
+        const series = makePalette(6, { baseHue, s: 72, l: 50, alpha: 1 });
+        const seriesFill = (idx, alpha) => {
+            const h = (baseHue + idx * 137.508) % 360;
+            return hslCss(h, 72, 50, alpha);
+        };
 
         // Inventory chart can render even when there are 0 orders.
         if (inventoryCanvasRef.current && inventoryAgg.hasData) {
             const invCtx = inventoryCanvasRef.current.getContext("2d");
-            const invGrad = invCtx.createLinearGradient(0, 0, inventoryCanvasRef.current.width || 300, 0);
-            invGrad.addColorStop(0, start);
-            invGrad.addColorStop(1, end);
-
             inventoryChartRef.current = new Chart(invCtx, {
                 type: "bar",
                 data: {
@@ -232,9 +280,9 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
                         {
                             label: "Count",
                             data: [inventoryAgg.inStockTotal, inventoryAgg.reservedTotal],
-                            backgroundColor: ["rgba(148 163 184 / 0.35)", invGrad],
-                            borderColor: ["rgba(148 163 184 / 0.6)", "rgba(0 0 0 / 0)"],
-                            borderWidth: [1, 0],
+                            backgroundColor: [seriesFill(4, 0.35), seriesFill(5, 0.35)],
+                            borderColor: [seriesFill(4, 0.65), seriesFill(5, 0.65)],
+                            borderWidth: 1,
                         },
                     ],
                 },
@@ -259,11 +307,7 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
         }
 
         const pieCtx = pieCanvasRef.current.getContext("2d");
-        const pieColors = regionAgg.labels.map((_, idx) => {
-            const t = regionAgg.labels.length <= 1 ? 0 : idx / Math.max(1, regionAgg.labels.length - 1);
-            const rgb = mixHex(start, end, t);
-            return rgb.replace("rgb(", "rgb(").replace(")", " / 0.85)");
-        });
+        const pieColors = makePalette(regionAgg.labels.length, { baseHue, s: 74, l: 52, alpha: 0.85 });
 
         pieChartRef.current = new Chart(pieCtx, {
             type: "pie",
@@ -294,10 +338,6 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
         });
 
         const barCtx = barCanvasRef.current.getContext("2d");
-        const barGrad = barCtx.createLinearGradient(0, 0, barCanvasRef.current.width || 300, 0);
-        barGrad.addColorStop(0, start);
-        barGrad.addColorStop(1, end);
-
         barChartRef.current = new Chart(barCtx, {
             type: "bar",
             data: {
@@ -306,24 +346,24 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
                     {
                         label: "Orders",
                         data: regionAgg.totalOrders,
-                        backgroundColor: "rgba(148 163 184 / 0.35)",
-                        borderColor: "rgba(148 163 184 / 0.6)",
+                        backgroundColor: seriesFill(0, 0.25),
+                        borderColor: seriesFill(0, 0.55),
                         borderWidth: 1,
                         yAxisID: "y",
                     },
                     {
                         label: "Revenue (Delivered)",
                         data: regionAgg.deliveredRevenue,
-                        backgroundColor: barGrad,
-                        borderColor: "rgba(0 0 0 / 0)",
-                        borderWidth: 0,
+                        backgroundColor: seriesFill(1, 0.35),
+                        borderColor: seriesFill(1, 0.65),
+                        borderWidth: 1,
                         yAxisID: "y1",
                     },
                     {
                         label: "Revenue (Expected)",
                         data: regionAgg.expectedRevenue,
-                        backgroundColor: "rgba(99 102 241 / 0.18)",
-                        borderColor: "rgba(99 102 241 / 0.35)",
+                        backgroundColor: seriesFill(2, 0.28),
+                        borderColor: seriesFill(2, 0.6),
                         borderWidth: 1,
                         yAxisID: "y1",
                     },
@@ -351,10 +391,6 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
         });
 
         const timeCtx = timeCanvasRef.current.getContext("2d");
-        const timeGrad = timeCtx.createLinearGradient(0, 0, timeCanvasRef.current.width || 300, 0);
-        timeGrad.addColorStop(0, start);
-        timeGrad.addColorStop(1, end);
-
         timeChartRef.current = new Chart(timeCtx, {
             type: "line",
             data: {
@@ -363,8 +399,8 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
                     {
                         label: "Orders",
                         data: timeAgg.orders,
-                        borderColor: "rgba(148 163 184 / 0.6)",
-                        backgroundColor: "rgba(148 163 184 / 0.08)",
+                        borderColor: seriesFill(0, 0.75),
+                        backgroundColor: seriesFill(0, 0.1),
                         borderWidth: 2,
                         tension: 0.35,
                         pointRadius: 2,
@@ -375,8 +411,8 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
                     {
                         label: "Revenue (Delivered)",
                         data: timeAgg.deliveredRevenue,
-                        borderColor: timeGrad,
-                        backgroundColor: "rgba(0 0 0 / 0)",
+                        borderColor: series[1],
+                        backgroundColor: seriesFill(1, 0.06),
                         borderWidth: 2,
                         tension: 0.35,
                         pointRadius: 2,
@@ -387,8 +423,8 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
                     {
                         label: "Revenue (Expected)",
                         data: timeAgg.expectedRevenue,
-                        borderColor: "rgba(99 102 241 / 0.35)",
-                        backgroundColor: "rgba(99 102 241 / 0.06)",
+                        borderColor: series[2],
+                        backgroundColor: seriesFill(2, 0.06),
                         borderWidth: 2,
                         tension: 0.35,
                         pointRadius: 2,
@@ -428,10 +464,6 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
         });
 
         const cumulativeCtx = cumulativeCanvasRef.current.getContext("2d");
-        const cumulativeGrad = cumulativeCtx.createLinearGradient(0, 0, cumulativeCanvasRef.current.width || 300, 0);
-        cumulativeGrad.addColorStop(0, start);
-        cumulativeGrad.addColorStop(1, end);
-
         cumulativeChartRef.current = new Chart(cumulativeCtx, {
             type: "line",
             data: {
@@ -440,8 +472,8 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
                     {
                         label: "Orders (Till date)",
                         data: timeAggCumulative.orders,
-                        borderColor: "rgba(148 163 184 / 0.7)",
-                        backgroundColor: "rgba(148 163 184 / 0.08)",
+                        borderColor: seriesFill(0, 0.8),
+                        backgroundColor: seriesFill(0, 0.1),
                         borderWidth: 2,
                         tension: 0.35,
                         pointRadius: 2,
@@ -452,8 +484,8 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
                     {
                         label: "Revenue Delivered (Till date)",
                         data: timeAggCumulative.deliveredRevenue,
-                        borderColor: cumulativeGrad,
-                        backgroundColor: "rgba(0 0 0 / 0)",
+                        borderColor: series[1],
+                        backgroundColor: seriesFill(1, 0.06),
                         borderWidth: 2,
                         tension: 0.35,
                         pointRadius: 2,
@@ -464,8 +496,8 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
                     {
                         label: "Revenue Expected (Till date)",
                         data: timeAggCumulative.expectedRevenue,
-                        borderColor: "rgba(99 102 241 / 0.45)",
-                        backgroundColor: "rgba(99 102 241 / 0.06)",
+                        borderColor: series[2],
+                        backgroundColor: seriesFill(2, 0.06),
                         borderWidth: 2,
                         tension: 0.35,
                         pointRadius: 2,
@@ -523,7 +555,9 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
                                 {error?.data?.error || error?.message || "Failed to load analytics data."}
                             </div>
                         ) : isLoading ? (
-                            <div className="mt-4 text-sm text-gray-600">Loading…</div>
+                            <div className="mt-4">
+                                <Skeleton className="h-72 w-full" />
+                            </div>
                         ) : !inventoryAgg.hasData ? (
                             <div className="mt-4 text-sm text-gray-600">No inventory data found.</div>
                         ) : (
@@ -545,7 +579,9 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
                             {error?.data?.error || error?.message || "Failed to load analytics data."}
                         </div>
                     ) : isLoading ? (
-                        <div className="mt-4 text-sm text-gray-600">Loading…</div>
+                        <div className="mt-4">
+                            <Skeleton className="h-72 w-full" />
+                        </div>
                     ) : safeOrders.length === 0 ? (
                         <div className="mt-4 text-sm text-gray-600">No orders found.</div>
                     ) : (
@@ -568,7 +604,9 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
                             {error?.data?.error || error?.message || "Failed to load analytics data."}
                         </div>
                     ) : isLoading ? (
-                        <div className="mt-4 text-sm text-gray-600">Loading…</div>
+                        <div className="mt-4">
+                            <Skeleton className="h-72 w-full" />
+                        </div>
                     ) : safeOrders.length === 0 ? (
                         <div className="mt-4 text-sm text-gray-600">No orders found.</div>
                     ) : (
@@ -591,7 +629,9 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
                             {error?.data?.error || error?.message || "Failed to load analytics data."}
                         </div>
                     ) : isLoading ? (
-                        <div className="mt-4 text-sm text-gray-600">Loading…</div>
+                        <div className="mt-4">
+                            <Skeleton className="h-80 w-full" />
+                        </div>
                     ) : safeOrders.length === 0 ? (
                         <div className="mt-4 text-sm text-gray-600">No orders found.</div>
                     ) : (
@@ -614,7 +654,9 @@ export default function OrdersAnalyticsCharts({ orders, getUnitEconomics, isLoad
                             {error?.data?.error || error?.message || "Failed to load analytics data."}
                         </div>
                     ) : isLoading ? (
-                        <div className="mt-4 text-sm text-gray-600">Loading…</div>
+                        <div className="mt-4">
+                            <Skeleton className="h-80 w-full" />
+                        </div>
                     ) : safeOrders.length === 0 ? (
                         <div className="mt-4 text-sm text-gray-600">No orders found.</div>
                     ) : (

@@ -3,12 +3,14 @@
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import { useUser } from "@/components/context/UserContext";
-import useSWR from "swr";
-import { useEffect, useMemo, useState } from "react";
+import useSWR, { preload } from "swr";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Input from "@/components/ui/Input";
-import Label from "@/components/ui/Label";
+import Link from "next/link";
 import { useSWRConfig } from "swr";
+import DeleteProductDialog from "@/components/products/DeleteProductDialog";
+import { ChartIcon, InfoIcon, PlusIcon, TrashIcon } from "@/components/ui/Icons";
+import Skeleton from "@/components/ui/Skeleton";
 
 export default function ProductsPage() {
     const router = useRouter();
@@ -16,10 +18,40 @@ export default function ProductsPage() {
     const canManageProducts = !!user?.manageProducts;
     const { mutate } = useSWRConfig();
 
-    const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null, name: "" });
-    const [deleteConfirmName, setDeleteConfirmName] = useState("");
-    const [deleteError, setDeleteError] = useState("");
-    const [isDeleting, setIsDeleting] = useState(false);
+    const baseColumns = useMemo(
+        () => [
+            { key: "product", label: "Product" },
+            { key: "created", label: "Created" },
+            { key: "cost", label: "Cost" },
+            { key: "selling", label: "Selling" },
+            { key: "category", label: "Category" },
+            { key: "images", label: "Images" },
+            { key: "details", label: "Details" },
+            { key: "analytics", label: "Analytics" },
+        ],
+        []
+    );
+
+    const tableColumns = useMemo(() => {
+        if (!canManageProducts) return baseColumns;
+        return [...baseColumns, { key: "actions", label: "Actions" }];
+    }, [baseColumns, canManageProducts]);
+
+    const renderTableHead = () => (
+        <thead>
+            <tr className="text-left text-gray-500">
+                {tableColumns.map((col) => (
+                    <th key={col.key} className="px-4 py-3">
+                        {col.label}
+                    </th>
+                ))}
+            </tr>
+        </thead>
+    );
+
+    const preloadedKeysRef = useRef(new Set());
+
+    const [deleteTarget, setDeleteTarget] = useState(null);
 
     const fetcher = async (url) => {
         const res = await fetch(url, { method: "GET" });
@@ -33,9 +65,19 @@ export default function ProductsPage() {
         return json;
     };
 
-    const { data, error, isLoading } = useSWR("/api/products", fetcher, {
-        revalidateOnFocus: false,
-    });
+    const preloadSWRKeys = (keys) => {
+        for (const key of keys) {
+            if (!key) continue;
+            if (preloadedKeysRef.current.has(key)) continue;
+            preloadedKeysRef.current.add(key);
+            Promise.resolve(preload(key, fetcher)).catch(() => {
+                // allow retrying later if preload failed
+                preloadedKeysRef.current.delete(key);
+            });
+        }
+    };
+
+    const { data, error, isLoading } = useSWR("/api/products", fetcher);
 
     useEffect(() => {
         if (error?.status === 401) {
@@ -77,41 +119,14 @@ export default function ProductsPage() {
     };
 
     const openDelete = (p) => {
-        setDeleteError("");
-        setDeleteConfirmName("");
-        setDeleteDialog({ open: true, id: p?.id ?? null, name: String(p?.name ?? "") });
+        setDeleteTarget({
+            id: p?.id ?? null,
+            name: String(p?.name ?? ""),
+        });
     };
 
     const closeDelete = () => {
-        if (isDeleting) return;
-        setDeleteDialog({ open: false, id: null, name: "" });
-        setDeleteConfirmName("");
-        setDeleteError("");
-    };
-
-    const confirmMatches = deleteConfirmName.trim() === deleteDialog.name;
-
-    const doDelete = async () => {
-        if (!deleteDialog.id || !confirmMatches) return;
-        setIsDeleting(true);
-        setDeleteError("");
-        try {
-            const res = await fetch(`/api/products/${encodeURIComponent(String(deleteDialog.id))}`, {
-                method: "DELETE",
-            });
-            const json = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                setDeleteError(json?.error || "Failed to delete product.");
-                return;
-            }
-
-            await mutate("/api/products");
-            closeDelete();
-        } catch (e) {
-            setDeleteError(e?.message || "Failed to delete product.");
-        } finally {
-            setIsDeleting(false);
-        }
+        setDeleteTarget(null);
     };
 
     return (
@@ -119,19 +134,47 @@ export default function ProductsPage() {
             <div className="flex items-center justify-between">
                 <h1 className="text-lg font-semibold text-gray-900">Products</h1>
                 {canManageProducts ? (
-                    <Button
-                        onClick={() => {
-                            router.push("/dashboard/products/new");
-                        }}
-                    >
-                        Add Product
+                    <Button asChild className="px-3 py-2" aria-label="Add product" title="Add product">
+                        <Link href="/dashboard/products/new">
+                            <PlusIcon />
+                            <span className="sr-only">Add Product</span>
+                        </Link>
                     </Button>
                 ) : null}
             </div>
 
             <Card className="mt-4 overflow-x-auto">
                 {isLoading ? (
-                    <div className="p-6 text-sm text-gray-600">Loading products…</div>
+                    <table className="min-w-full text-sm">
+                        {renderTableHead()}
+                        <tbody className="divide-y divide-gray-100">
+                            {Array.from({ length: 8 }).map((_, i) => (
+                                <tr key={`prod-skel-${i}`}>
+                                    <td className="px-4 py-3">
+                                        <div className="flex items-center gap-3">
+                                            <Skeleton className="h-10 w-10 rounded-md" />
+                                            <div className="min-w-0 flex-1">
+                                                <Skeleton className="h-4 w-48" />
+                                                <div className="mt-2">
+                                                    <Skeleton className="h-3 w-64" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                                    <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                                    <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                                    <td className="px-4 py-3"><Skeleton className="h-4 w-28" /></td>
+                                    <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                                    <td className="px-4 py-3"><Skeleton className="h-9 w-10 rounded-lg" /></td>
+                                    <td className="px-4 py-3"><Skeleton className="h-9 w-10 rounded-lg" /></td>
+                                    {canManageProducts ? (
+                                        <td className="px-4 py-3"><Skeleton className="h-9 w-10 rounded-lg" /></td>
+                                    ) : null}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 ) : error ? (
                     <div className="p-6 text-sm text-gray-600">
                         {error?.status === 401
@@ -142,38 +185,19 @@ export default function ProductsPage() {
                     <div className="p-6 text-sm text-gray-600">No products found.</div>
                 ) : (
                     <table className="min-w-full text-sm">
-                        <thead>
-                            <tr className="text-left text-gray-500">
-                                <th className="px-4 py-3">Product</th>
-                                <th className="px-4 py-3">Created</th>
-                                <th className="px-4 py-3">Cost</th>
-                                <th className="px-4 py-3">Selling</th>
-                                <th className="px-4 py-3">Category</th>
-                                <th className="px-4 py-3">Images</th>
-                                <th className="px-4 py-3">Analytics</th>
-                                {canManageProducts ? <th className="px-4 py-3">Actions</th> : null}
-                            </tr>
-                        </thead>
+                        {renderTableHead()}
                         <tbody className="divide-y divide-gray-100">
                             {products.map((p, idx) => {
                                 const imageUrls = normalizeImageUrls(p.imageUrls);
                                 const preview = imageUrls.slice(0, 3);
                                 const remaining = Math.max(0, imageUrls.length - preview.length);
-                                const href = `/dashboard/products/${p.id}?i=${idx}`;
+                                const detailsHref = `/dashboard/products/${encodeURIComponent(String(p.id))}`;
                                 return (
                                     <tr
                                         key={p.id}
-                                        className="cursor-pointer hover:bg-gray-50"
-                                        tabIndex={0}
-                                        onClick={() => router.push(href)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter" || e.key === " ") {
-                                                e.preventDefault();
-                                                router.push(href);
-                                            }
-                                        }}
+                                        className="hover:bg-gray-50"
                                     >
-                                        <td className="px-4 py-3">
+                                        <td className="px-4 py-3 max-w-sm">
                                             <div className="flex items-center gap-3">
                                                 <div className="h-10 w-10 overflow-hidden rounded-md border border-gray-200 bg-white">
                                                     {imageUrls[0] ? (
@@ -185,7 +209,9 @@ export default function ProductsPage() {
                                                 <div className="min-w-0">
                                                     <div className="truncate font-medium text-gray-900">{p.name}</div>
                                                     {p.description ? (
-                                                        <div className="mt-0.5 truncate text-xs text-gray-500">{p.description}</div>
+                                                        <div className="mt-0.5 truncate text-xs text-gray-500" title={String(p.description)}>
+                                                            {p.description}
+                                                        </div>
                                                     ) : null}
                                                 </div>
                                             </div>
@@ -216,29 +242,87 @@ export default function ProductsPage() {
                                             )}
                                         </td>
                                         <td className="px-4 py-3">
-                                            <Button
-                                                variant="outline"
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    router.push(`/dashboard/products/${encodeURIComponent(String(p.id))}/analytics`);
-                                                }}
-                                            >
-                                                View analytics
+                                            <Button asChild variant="outline" className="px-3 py-2">
+                                                <Link
+                                                    href={detailsHref}
+                                                    onMouseEnter={() => {
+                                                        const id = encodeURIComponent(String(p.id));
+                                                        preloadSWRKeys([
+                                                            `/api/products/${id}`,
+                                                            "/api/categories",
+                                                            `/api/reviews/${id}`,
+                                                            `/api/inventory/${id}`,
+                                                            `/api/orders/${id}`,
+                                                        ]);
+                                                    }}
+                                                    onFocus={() => {
+                                                        const id = encodeURIComponent(String(p.id));
+                                                        preloadSWRKeys([
+                                                            `/api/products/${id}`,
+                                                            "/api/categories",
+                                                            `/api/reviews/${id}`,
+                                                            `/api/inventory/${id}`,
+                                                            `/api/orders/${id}`,
+                                                        ]);
+                                                    }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                    }}
+                                                    aria-label="Product details"
+                                                    title="Product details"
+                                                >
+                                                    <InfoIcon />
+                                                    <span className="sr-only">Product details</span>
+                                                </Link>
+                                            </Button>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <Button asChild variant="outline">
+                                                <Link
+                                                    href={`/dashboard/products/${encodeURIComponent(String(p.id))}/analytics`}
+                                                    prefetch={false}
+                                                    onMouseEnter={() => {
+                                                        const id = encodeURIComponent(String(p.id));
+                                                        preloadSWRKeys([
+                                                            `/api/products/${id}`,
+                                                            `/api/orders/${id}`,
+                                                            `/api/inventory/${id}`,
+                                                        ]);
+                                                    }}
+                                                    onFocus={() => {
+                                                        const id = encodeURIComponent(String(p.id));
+                                                        preloadSWRKeys([
+                                                            `/api/products/${id}`,
+                                                            `/api/orders/${id}`,
+                                                            `/api/inventory/${id}`,
+                                                        ]);
+                                                    }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                    }}
+                                                    aria-label="View analytics"
+                                                    title="View analytics"
+                                                >
+                                                    <ChartIcon />
+                                                    <span className="sr-only">View analytics</span>
+                                                </Link>
                                             </Button>
                                         </td>
                                         {canManageProducts ? (
                                             <td className="px-4 py-3">
                                                 <Button
                                                     variant="outline"
-                                                    className="border-red-300 text-red-700 hover:bg-red-50"
+                                                    className="border-red-300 text-red-700 hover:bg-red-50 px-3 py-2"
+                                                    aria-label="Delete product"
+                                                    title="Delete product"
                                                     onClick={(e) => {
                                                         e.preventDefault();
                                                         e.stopPropagation();
                                                         openDelete(p);
                                                     }}
                                                 >
-                                                    Delete
+                                                    <TrashIcon />
+                                                    <span className="sr-only">Delete</span>
                                                 </Button>
                                             </td>
                                         ) : null}
@@ -250,61 +334,15 @@ export default function ProductsPage() {
                 )}
             </Card>
 
-            {deleteDialog.open ? (
-                <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="Delete product confirmation"
-                    onMouseDown={(e) => {
-                        if (e.target === e.currentTarget) closeDelete();
-                    }}
-                >
-                    <Card className="w-full max-w-lg p-6">
-                        <div className="text-base font-semibold text-gray-900">Delete product</div>
-                        <div className="mt-1 text-sm text-gray-600">
-                            This action can’t be undone. Type <span className="font-semibold text-gray-900">{deleteDialog.name}</span> to confirm.
-                        </div>
-
-                        <div className="mt-4">
-                            <Label htmlFor="deleteConfirm">Product name</Label>
-                            <Input
-                                id="deleteConfirm"
-                                className="mt-1"
-                                value={deleteConfirmName}
-                                onChange={(e) => setDeleteConfirmName(e.target.value)}
-                                placeholder={deleteDialog.name}
-                                autoFocus
-                                disabled={isDeleting}
-                            />
-                        </div>
-
-                        {deleteError ? (
-                            <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                                {deleteError}
-                            </div>
-                        ) : null}
-
-                        <div className="mt-5 flex justify-end gap-2">
-                            <Button type="button" variant="outline" onClick={closeDelete} disabled={isDeleting}>
-                                Cancel
-                            </Button>
-                            <Button
-                                type="button"
-                                className={
-                                    confirmMatches
-                                        ? "bg-red-600 text-white hover:bg-red-700"
-                                        : "bg-gray-200 text-gray-600 hover:bg-gray-200"
-                                }
-                                onClick={doDelete}
-                                disabled={!confirmMatches || isDeleting}
-                            >
-                                {isDeleting ? "Deleting…" : "Delete"}
-                            </Button>
-                        </div>
-                    </Card>
-                </div>
-            ) : null}
+            <DeleteProductDialog
+                open={!!deleteTarget}
+                productId={deleteTarget?.id}
+                productName={deleteTarget?.name}
+                onClose={closeDelete}
+                onDeleted={async () => {
+                    await mutate("/api/products");
+                }}
+            />
         </>
     );
 }

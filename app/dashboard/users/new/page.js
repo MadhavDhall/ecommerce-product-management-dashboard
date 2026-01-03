@@ -10,6 +10,7 @@ import Label from "@/components/ui/Label";
 
 import { useUser } from "@/components/context/UserContext";
 import { UserCreateSchema, userCreateDefaultValues } from "@/form-schema/user";
+import Skeleton from "@/components/ui/Skeleton";
 
 export default function NewUserPage() {
     const router = useRouter();
@@ -29,7 +30,11 @@ export default function NewUserPage() {
     }, [loading, canManageUsers, router]);
 
     if (loading || !canManageUsers) {
-        return <div className="text-sm text-gray-600">{loading ? "Loading…" : "Redirecting…"}</div>;
+        return (
+            <div className="text-sm text-gray-600">
+                {loading ? <Skeleton className="h-4 w-24" /> : "Redirecting…"}
+            </div>
+        );
     }
 
     const update = (key, value) => {

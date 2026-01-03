@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/components/context/UserContext";
 import useSWR from "swr";
+import Skeleton from "@/components/ui/Skeleton";
 
 export default function UsersPage() {
     const router = useRouter();
@@ -38,8 +39,7 @@ export default function UsersPage() {
 
     const { data, error: usersError, isLoading: usersLoading, mutate } = useSWR(
         user?.manageUsers ? "/api/users" : null,
-        fetcher,
-        { revalidateOnFocus: false }
+        fetcher
     );
 
     useEffect(() => {
@@ -56,7 +56,21 @@ export default function UsersPage() {
     }, [usersError, router]);
 
     if (loading) {
-        return <div className="text-sm text-gray-500">Loading…</div>;
+        return (
+            <div>
+                <div className="flex items-center justify-between">
+                    <Skeleton className="h-6 w-32" />
+                    <Skeleton className="h-9 w-28 rounded-lg" />
+                </div>
+                <Card className="mt-4">
+                    <div className="p-6 space-y-3">
+                        <Skeleton className="h-4 w-60" />
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-5/6" />
+                    </div>
+                </Card>
+            </div>
+        );
     }
 
     if (user && !user.manageUsers) {
@@ -155,7 +169,40 @@ export default function UsersPage() {
             </div>
             <Card className="mt-4 overflow-x-auto">
                 {usersLoading ? (
-                    <div className="p-4 text-sm text-gray-600">Loading users…</div>
+                    <table className="min-w-full text-sm">
+                        <thead>
+                            <tr className="text-left text-gray-500">
+                                <th className="px-4 py-3">Name</th>
+                                <th className="px-4 py-3">Email</th>
+                                <th className="px-4 py-3">Permissions</th>
+                                <th className="px-4 py-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {Array.from({ length: 6 }).map((_, idx) => (
+                                <tr key={idx}>
+                                    <td className="px-4 py-3">
+                                        <Skeleton className="h-4 w-40" />
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <Skeleton className="h-4 w-56" />
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <div className="flex flex-wrap gap-2">
+                                            <Skeleton className="h-6 w-28 rounded-full" />
+                                            <Skeleton className="h-6 w-32 rounded-full" />
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <div className="flex items-center gap-2">
+                                            <Skeleton className="h-8 w-20 rounded-lg" />
+                                            <Skeleton className="h-8 w-20 rounded-lg" />
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 ) : usersError ? (
                     <div className="p-4 text-sm text-red-600">{usersError.message || "Failed to load users"}</div>
                 ) : (

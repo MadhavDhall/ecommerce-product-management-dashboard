@@ -3,6 +3,7 @@
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import Skeleton from "@/components/ui/Skeleton";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -34,7 +35,34 @@ export default function UserProfileCard({ user, loading, allowNameEdit = false, 
     if (loading) {
         return (
             <Card className="mt-4 p-6">
-                <div className="text-sm text-gray-600">Loading profile…</div>
+                <div className="space-y-5">
+                    <div>
+                        <Skeleton className="h-3 w-12" />
+                        <div className="mt-2 flex items-center gap-2">
+                            <Skeleton className="h-4 w-40" />
+                            <Skeleton className="h-8 w-16 rounded-lg" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <Skeleton className="h-3 w-12" />
+                        <Skeleton className="mt-2 h-4 w-56" />
+                    </div>
+
+                    <div>
+                        <Skeleton className="h-3 w-16" />
+                        <Skeleton className="mt-2 h-4 w-44" />
+                    </div>
+
+                    <div>
+                        <Skeleton className="h-3 w-24" />
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            <Skeleton className="h-6 w-28 rounded-full" />
+                            <Skeleton className="h-6 w-32 rounded-full" />
+                            <Skeleton className="h-6 w-24 rounded-full" />
+                        </div>
+                    </div>
+                </div>
             </Card>
         );
     }

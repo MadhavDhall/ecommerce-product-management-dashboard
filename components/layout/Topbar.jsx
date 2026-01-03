@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { useUser } from "@/components/context/UserContext";
+import Skeleton from "@/components/ui/Skeleton";
 
 export default function Topbar({ onMenuClick }) {
     const router = useRouter();
@@ -39,7 +40,11 @@ export default function Topbar({ onMenuClick }) {
                 <div className="hidden min-[755px]:inline-flex items-center gap-2">
                     <img src="/logo.svg" alt="Dhall Ecom" className="h-6 w-6" />
                     <span className="max-w-[16rem] truncate text-sm font-semibold tracking-tight text-gray-900">
-                        {loading ? "Loading…" : (user?.companyName || "Dhall Ecom")}
+                        {loading ? (
+                            <Skeleton className="h-4 w-32" />
+                        ) : (
+                            (user?.companyName || "Dhall Ecom")
+                        )}
                     </span>
                 </div>
             </div>
@@ -54,9 +59,11 @@ export default function Topbar({ onMenuClick }) {
                     }
                 >
                     <div className="px-2 py-1 text-xs text-gray-500">
-                        {loading
-                            ? "Loading…"
-                            : `Signed in as ${user?.name || user?.email || "Unknown"}`}
+                        {loading ? (
+                            <Skeleton className="h-3 w-40" />
+                        ) : (
+                            `Signed in as ${user?.name || user?.email || "Unknown"}`
+                        )}
                     </div>
                     <Link href="/dashboard/profile" className="block rounded-md px-3 py-2 text-gray-700 hover:bg-gray-100">Profile</Link>
                     <div className="my-1 h-px bg-gray-200" />

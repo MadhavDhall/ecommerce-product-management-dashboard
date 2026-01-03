@@ -21,9 +21,7 @@ export function UserProvider({ children }) {
         return json;
     };
 
-    const { data, error, isLoading, mutate } = useSWR("/api/me", fetcher, {
-        revalidateOnFocus: false,
-    });
+    const { data, error, isLoading, mutate } = useSWR("/api/me", fetcher);
 
     const user = data?.user || null;
     const loading = !!isLoading;

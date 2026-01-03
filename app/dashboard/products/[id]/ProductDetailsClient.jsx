@@ -6,14 +6,17 @@ import ReviewListItem from "@/components/reviews/ReviewListItem";
 import Input from "@/components/ui/Input";
 import Label from "@/components/ui/Label";
 import { useUser } from "@/components/context/UserContext";
-import useSWR from "swr";
+import useSWR, { preload } from "swr";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useSWRConfig } from "swr";
+import DeleteProductDialog from "@/components/products/DeleteProductDialog";
+import { ArrowLeftIcon, ChartIcon, PencilIcon, TrashIcon } from "@/components/ui/Icons";
+import Skeleton from "@/components/ui/Skeleton";
 
 export default function ProductDetailsClient({ productId }) {
     const router = useRouter();
-    const searchParams = useSearchParams();
     const { mutate } = useSWRConfig();
     const { user } = useUser();
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -23,6 +26,8 @@ export default function ProductDetailsClient({ productId }) {
     const [saveError, setSaveError] = useState("");
     const [lightboxUrl, setLightboxUrl] = useState("");
     const imagesInputRef = useRef(null);
+    const preloadedKeysRef = useRef(new Set());
+    const [deleteOpen, setDeleteOpen] = useState(false);
 
     const [draft, setDraft] = useState({
         name: "",
@@ -51,48 +56,32 @@ export default function ProductDetailsClient({ productId }) {
         return json;
     };
 
-    // Prefer using the already-fetched products list from SWR cache.
-    // IMPORTANT: This must be cache-only (no network). If cache is cold, we should
-    // fetch only the product details endpoint, not the entire products list.
-    const { data: listData } = useSWR("/api/products", null);
-
-    const productFromList = useMemo(() => {
-        const list = listData?.products;
-        if (!safeProductId || !Array.isArray(list)) return null;
-
-        // Fast-path: when navigating from the table, we pass ?i=<rowIndex>
-        // so we can pick the product in O(1) without scanning the list.
-        const iRaw = searchParams?.get("i");
-        const i = iRaw == null ? NaN : Number.parseInt(String(iRaw), 10);
-
-        if (Number.isInteger(i) && i >= 0 && i < list.length) {
-            const candidate = list[i];
-            if (candidate?.id != null && String(candidate.id) === safeProductId) {
-                return candidate;
-            }
+    const preloadSWRKeys = (keys) => {
+        for (const key of keys) {
+            if (!key) continue;
+            if (preloadedKeysRef.current.has(key)) continue;
+            preloadedKeysRef.current.add(key);
+            Promise.resolve(preload(key, fetcher)).catch(() => {
+                // allow retrying later if preload failed
+                preloadedKeysRef.current.delete(key);
+            });
         }
-
-        // Fallback: deep link / list order changed / index missing
-        return list.find((p) => p?.id != null && String(p.id) === safeProductId) || null;
-    }, [listData, safeProductId, searchParams]);
-
-    const shouldFetchDetail = Boolean(safeProductId) && !productFromList;
+    };
 
     const {
         data: detailData,
         error: detailError,
         isLoading: isDetailLoading,
     } = useSWR(
-        shouldFetchDetail ? `/api/products/${encodeURIComponent(safeProductId)}` : null,
-        fetcher,
-        { revalidateOnFocus: false }
+        safeProductId ? `/api/products/${encodeURIComponent(safeProductId)}` : null,
+        fetcher
     );
 
     const {
         data: categoriesData,
         error: categoriesError,
         isLoading: isCategoriesLoading,
-    } = useSWR("/api/categories", fetcher, { revalidateOnFocus: false });
+    } = useSWR("/api/categories", fetcher);
 
     const {
         data: reviewsData,
@@ -100,8 +89,7 @@ export default function ProductDetailsClient({ productId }) {
         isLoading: isReviewsLoading,
     } = useSWR(
         safeProductId ? `/api/reviews/${encodeURIComponent(safeProductId)}` : null,
-        fetcher,
-        { revalidateOnFocus: false }
+        fetcher
     );
 
     const {
@@ -110,8 +98,7 @@ export default function ProductDetailsClient({ productId }) {
         isLoading: isInventoryLoading,
     } = useSWR(
         safeProductId ? `/api/inventory/${encodeURIComponent(safeProductId)}` : null,
-        fetcher,
-        { revalidateOnFocus: false }
+        fetcher
     );
 
     const {
@@ -120,8 +107,7 @@ export default function ProductDetailsClient({ productId }) {
         isLoading: isOrdersLoading,
     } = useSWR(
         safeProductId ? `/api/orders/${encodeURIComponent(safeProductId)}` : null,
-        fetcher,
-        { revalidateOnFocus: false }
+        fetcher
     );
 
     useEffect(() => {
@@ -135,7 +121,7 @@ export default function ProductDetailsClient({ productId }) {
         }
     }, [categoriesError, detailError, inventoryError, ordersError, router]);
 
-    const product = productFromList || detailData?.product || null;
+    const product = detailData?.product || null;
 
     const attributesInfo = useMemo(() => {
         const raw = product?.attributes;
@@ -179,7 +165,7 @@ export default function ProductDetailsClient({ productId }) {
     };
 
     const error = detailError || categoriesError || reviewsError;
-    const isLoading = (shouldFetchDetail && !product && isDetailLoading) || (!categoriesData && isCategoriesLoading);
+    const isLoading = (!product && isDetailLoading) || (!categoriesData && isCategoriesLoading);
 
     const reservedStock = useMemo(() => {
         const orders = ordersData?.orders;
@@ -504,6 +490,18 @@ export default function ProductDetailsClient({ productId }) {
 
     return (
         <>
+            <DeleteProductDialog
+                open={deleteOpen}
+                productId={safeProductId}
+                productName={product?.name}
+                onClose={() => setDeleteOpen(false)}
+                onDeleted={async () => {
+                    // Keep caches consistent, then return to list
+                    await mutate("/api/products");
+                    await mutate(`/api/products/${encodeURIComponent(safeProductId)}`);
+                    router.push("/dashboard/products");
+                }}
+            />
             {lightboxUrl ? (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
@@ -539,7 +537,7 @@ export default function ProductDetailsClient({ productId }) {
                 <div>
                     <div className="text-xs text-gray-500">Products</div>
                     <h1 className="mt-1 text-lg font-semibold text-gray-900">
-                        {isLoading ? "Loading…" : product?.name || "Product"}
+                        {isLoading ? <Skeleton className="h-6 w-56" /> : (product?.name || "Product")}
                     </h1>
                 </div>
 
@@ -565,27 +563,69 @@ export default function ProductDetailsClient({ productId }) {
                             <Button
                                 variant="outline"
                                 onClick={enterEditMode}
+                                aria-label="Edit product"
+                                title="Edit product"
                             >
-                                Edit product
+                                <PencilIcon />
+                                <span className="sr-only">Edit product</span>
                             </Button>
                         )
                     ) : null}
-                    {safeProductId ? (
+                    {canEditProduct && product && !error && !isLoading ? (
                         <Button
                             variant="outline"
-                            onClick={() => {
-                                router.push(`/dashboard/products/${encodeURIComponent(safeProductId)}/analytics`);
-                            }}
+                            className="border-red-300 text-red-700 hover:bg-red-50"
+                            disabled={isSaving || isEditing}
+                            onClick={() => setDeleteOpen(true)}
+                            aria-label="Delete product"
+                            title="Delete product"
                         >
-                            View analytics
+                            <TrashIcon />
+                            <span className="sr-only">Delete</span>
                         </Button>
                     ) : null}
-                    <Button
-                        onClick={() => {
-                            router.push("/dashboard/products");
-                        }}
-                    >
-                        Back
+                    {safeProductId ? (
+                        <Button asChild variant="outline" className="px-3 py-2">
+                            <Link
+                                href={`/dashboard/products/${encodeURIComponent(safeProductId)}/analytics`}
+                                prefetch={false}
+                                onMouseEnter={() => {
+                                    preloadSWRKeys([
+                                        `/api/products/${encodeURIComponent(safeProductId)}`,
+                                        `/api/orders/${encodeURIComponent(safeProductId)}`,
+                                        `/api/inventory/${encodeURIComponent(safeProductId)}`,
+                                    ]);
+                                }}
+                                onFocus={() => {
+                                    preloadSWRKeys([
+                                        `/api/products/${encodeURIComponent(safeProductId)}`,
+                                        `/api/orders/${encodeURIComponent(safeProductId)}`,
+                                        `/api/inventory/${encodeURIComponent(safeProductId)}`,
+                                    ]);
+                                }}
+                                aria-label="View analytics"
+                                title="View analytics"
+                            >
+                                <ChartIcon />
+                                <span className="sr-only">View analytics</span>
+                            </Link>
+                        </Button>
+                    ) : null}
+                    <Button asChild variant="outline" className="px-3 py-2">
+                        <Link
+                            href="/dashboard/products"
+                            onMouseEnter={() => {
+                                preloadSWRKeys(["/api/products"]);
+                            }}
+                            onFocus={() => {
+                                preloadSWRKeys(["/api/products"]);
+                            }}
+                            aria-label="Back to products"
+                            title="Back to products"
+                        >
+                            <ArrowLeftIcon />
+                            <span className="sr-only">Back</span>
+                        </Link>
                     </Button>
                 </div>
             </div>
@@ -593,7 +633,12 @@ export default function ProductDetailsClient({ productId }) {
             <div className="mt-4 grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
                 <Card className="lg:col-span-1">
                     {isLoading ? (
-                        <div className="p-6 text-sm text-gray-600">Loading product…</div>
+                        <div className="p-4">
+                            <Skeleton className="aspect-square w-full rounded-lg" />
+                            <div className="mt-4">
+                                <Skeleton className="h-3 w-28" />
+                            </div>
+                        </div>
                     ) : error ? (
                         <div className="p-6 text-sm text-gray-600">
                             {error?.status === 401
@@ -654,7 +699,19 @@ export default function ProductDetailsClient({ productId }) {
                 <div className="lg:col-span-2">
                     <Card>
                         {isLoading ? (
-                            <div className="p-6 text-sm text-gray-600">Loading details…</div>
+                            <div className="p-6 space-y-4">
+                                <div>
+                                    <Skeleton className="h-3 w-24" />
+                                    <div className="mt-2">
+                                        <Skeleton className="h-4 w-full" />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <Skeleton className="h-20 w-full" />
+                                    <Skeleton className="h-20 w-full" />
+                                </div>
+                                <Skeleton className="h-24 w-full" />
+                            </div>
                         ) : error ? (
                             <div className="p-6 text-sm text-gray-600">
                                 {error?.status === 401
@@ -1084,7 +1141,19 @@ export default function ProductDetailsClient({ productId }) {
                             </div>
 
                             {isReviewsLoading ? (
-                                <div className="mt-4 text-sm text-gray-600">Loading reviews…</div>
+                                <div className="mt-4 space-y-3">
+                                    {Array.from({ length: 3 }).map((_, i) => (
+                                        <div key={`prod-rev-skel-${i}`} className="rounded-lg border border-gray-100 bg-white p-4">
+                                            <Skeleton className="h-4 w-40" />
+                                            <div className="mt-3">
+                                                <Skeleton className="h-3 w-full" />
+                                                <div className="mt-2">
+                                                    <Skeleton className="h-3 w-5/6" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             ) : reviewsError ? (
                                 <div className="mt-4 text-sm text-gray-600">
                                     {reviewsError?.data?.error || reviewsError?.message || "Failed to load reviews."}

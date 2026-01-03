@@ -2,6 +2,7 @@
 
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import Skeleton from "@/components/ui/Skeleton";
 import { useUser } from "@/components/context/UserContext";
 import useSWR from "swr";
 import { useEffect, useMemo, useState } from "react";
@@ -24,7 +25,7 @@ export default function InventoryPage() {
         return json;
     };
 
-    const { data, error, isLoading, mutate } = useSWR("/api/inventory", fetcher, { revalidateOnFocus: false });
+    const { data, error, isLoading, mutate } = useSWR("/api/inventory", fetcher);
 
     const [draftByProductId, setDraftByProductId] = useState({});
     const [lastEditedAtByProductId, setLastEditedAtByProductId] = useState({});
@@ -239,11 +240,25 @@ export default function InventoryPage() {
                                 </td>
                             </tr>
                         ) : isLoading || userLoading ? (
-                            <tr>
-                                <td className="px-4 py-6 text-sm text-gray-700" colSpan={5}>
-                                    Loading…
-                                </td>
-                            </tr>
+                            Array.from({ length: 8 }).map((_, i) => (
+                                <tr key={`inv-skel-${i}`}>
+                                    <td className="px-4 py-3">
+                                        <div className="flex items-center gap-3">
+                                            <Skeleton className="h-10 w-10 rounded-md" />
+                                            <div className="min-w-0 flex-1">
+                                                <Skeleton className="h-4 w-48" />
+                                                <div className="mt-2">
+                                                    <Skeleton className="h-3 w-24" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
+                                    <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
+                                    <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
+                                    <td className="px-4 py-3"><Skeleton className="h-4 w-28" /></td>
+                                </tr>
+                            ))
                         ) : sortedRows.length === 0 ? (
                             <tr>
                                 <td className="px-4 py-6 text-sm text-gray-700" colSpan={5}>

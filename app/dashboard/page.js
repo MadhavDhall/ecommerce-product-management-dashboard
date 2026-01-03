@@ -32,18 +32,15 @@ export default function DashboardPage() {
 
     const { data: productsCountData, error: productsCountError, isLoading: isProductsCountLoading } = useSWR(
         "/api/products/count",
-        fetcher,
-        { revalidateOnFocus: false }
+        fetcher
     );
     const { data: inventoryCountData, error: inventoryCountError, isLoading: isInventoryCountLoading } = useSWR(
         "/api/inventory/count",
-        fetcher,
-        { revalidateOnFocus: false }
+        fetcher
     );
     const { data: ordersCountData, error: ordersCountError, isLoading: isOrdersCountLoading } = useSWR(
         "/api/orders/count",
-        fetcher,
-        { revalidateOnFocus: false }
+        fetcher
     );
 
     const { data: productsData, isLoading: productsLoading, error: productsError } = useSWR("/api/products", fetcher);
