@@ -11,6 +11,19 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Label from "@/components/ui/Label";
 import axios from "axios";
+import { preload } from "swr";
+
+const fetcher = async (url) => {
+    const res = await fetch(url, { method: "GET" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        const err = new Error(json?.error || "Request failed");
+        err.status = res.status;
+        err.data = json;
+        throw err;
+    }
+    return json;
+};
 
 export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
@@ -42,11 +55,15 @@ export default function LoginPage() {
     ];
 
     const preloadDashboardData = async () => {
-        await Promise.allSettled(
-            preloadUrls.map((url) =>
-                axios.get(url, { withCredentials: true }).catch(() => null)
-            )
-        );
+        try {
+            await Promise.allSettled(
+                preloadUrls.map((url) =>
+                    preload(url, fetcher)
+                )
+            );
+        } catch (error) {
+            console.error("Preload failed:", error);
+        }
     };
 
     const onSubmit = handleSubmit(async (data) => {
@@ -55,7 +72,7 @@ export default function LoginPage() {
             await axios.post("/api/login", data);
             // Success: redirect to dashboard
             // now preload all the necessry apis for dashboard overview
-            preloadDashboardData();
+            await preloadDashboardData();
 
             router.push("/dashboard");
         } catch (error) {
