@@ -11,6 +11,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Label from "@/components/ui/Label";
 import axios from "axios";
+import { preload } from "swr";
 
 const schema = z.object({
     companyName: z.string().min(2, { message: "Company name is required" }),
@@ -18,6 +19,18 @@ const schema = z.object({
     ownerEmail: z.string().email({ message: "Enter a valid email" }),
     ownerPassword: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
+
+const fetcher = async (url) => {
+    const res = await fetch(url, { method: "GET" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        const err = new Error(json?.error || "Request failed");
+        err.status = res.status;
+        err.data = json;
+        throw err;
+    }
+    return json;
+};
 
 export default function RegisterPage() {
     const [showPassword, setShowPassword] = useState(false);
@@ -40,6 +53,27 @@ export default function RegisterPage() {
         },
     });
 
+    const preloadUrls = [
+        "/api/products/count",
+        "/api/inventory/count",
+        "/api/orders/count",
+        "/api/products",
+        "/api/orders",
+        "/api/inventory",
+    ];
+
+    const preloadDashboardData = async () => {
+        try {
+            await Promise.allSettled(
+                preloadUrls.map((url) =>
+                    preload(url, fetcher)
+                )
+            );
+        } catch (error) {
+            console.error("Preload failed:", error);
+        }
+    };
+
     const onSubmit = handleSubmit(async (data) => {
         setSubmitted(false);
         clearErrors("root");
@@ -51,6 +85,11 @@ export default function RegisterPage() {
                 ownerPassword: data.ownerPassword,
             });
             setSubmitted(true);
+
+            // Success: redirect to dashboard
+            // now preload all the necessry apis for dashboard overview
+            await preloadDashboardData();
+
             router.push("/dashboard");
         } catch (error) {
             const status = error?.response?.status;
