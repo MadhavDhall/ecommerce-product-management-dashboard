@@ -32,11 +32,31 @@ export default function LoginPage() {
         defaultValues: { email: "", password: "" },
     });
 
+    const preloadUrls = [
+        "/api/products/count",
+        "/api/inventory/count",
+        "/api/orders/count",
+        "/api/products",
+        "/api/orders",
+        "/api/inventory",
+    ];
+
+    const preloadDashboardData = async () => {
+        await Promise.allSettled(
+            preloadUrls.map((url) =>
+                axios.get(url, { withCredentials: true }).catch(() => null)
+            )
+        );
+    };
+
     const onSubmit = handleSubmit(async (data) => {
         clearErrors("root");
         try {
             await axios.post("/api/login", data);
             // Success: redirect to dashboard
+            // now preload all the necessry apis for dashboard overview
+            preloadDashboardData();
+
             router.push("/dashboard");
         } catch (error) {
             const status = error?.response?.status;
