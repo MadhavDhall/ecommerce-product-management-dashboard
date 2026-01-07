@@ -84,6 +84,12 @@ export default function NewProductPage() {
                     categories={categories}
                     submitLabel="Create Product"
                     onSubmit={async (payload) => {
+                        // Require at least one image in the outgoing FormData
+                        const imageFiles = (payload?.getAll?.("images") || []).filter(Boolean);
+                        if (imageFiles.length === 0) {
+                            throw new Error("At least one image is required");
+                        }
+
                         const res = await fetch("/api/products/new", {
                             method: "POST",
                             body: payload,
@@ -96,8 +102,12 @@ export default function NewProductPage() {
                             throw err;
                         }
 
-                        // Refresh products list cache before navigating back.
-                        await mutate("/api/products");
+                        const createdId = json?.product?.id;
+                        await Promise.all([
+                            mutate("/api/products"),
+                            mutate("/api/products/count"),
+                            createdId ? mutate(`/api/products/${encodeURIComponent(createdId)}`) : Promise.resolve(),
+                        ]);
                         setSubmitted(true);
                         router.push("/dashboard/products");
                     }}

@@ -6,18 +6,17 @@ import ReviewListItem from "@/components/reviews/ReviewListItem";
 import Input from "@/components/ui/Input";
 import Label from "@/components/ui/Label";
 import { useUser } from "@/components/context/UserContext";
-import useSWR, { preload } from "swr";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useSWRConfig } from "swr";
+import useSWR, { mutate, preload } from "swr";
 import DeleteProductDialog from "@/components/products/DeleteProductDialog";
 import { ArrowLeftIcon, ChartIcon, PencilIcon, TrashIcon } from "@/components/ui/Icons";
 import Skeleton from "@/components/ui/Skeleton";
 
 export default function ProductDetailsClient({ productId }) {
     const router = useRouter();
-    const { mutate } = useSWRConfig();
+    const fileInputRef = useRef(null);
     const { user } = useUser();
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
     const [reviewsExpanded, setReviewsExpanded] = useState(false);
@@ -41,6 +40,9 @@ export default function ProductDetailsClient({ productId }) {
 
     const [draftKeepImageUrls, setDraftKeepImageUrls] = useState([]);
     const [draftNewImages, setDraftNewImages] = useState([]);
+
+    // track touch for edit form images
+    const [imagesTouched, setImagesTouched] = useState(false);
 
     const safeProductId = useMemo(() => (productId == null ? "" : String(productId)), [productId]);
 
@@ -402,11 +404,20 @@ export default function ProductDetailsClient({ productId }) {
             const nextAttrs = buildAttributesObject(draftAttributes);
 
             const baselineImageUrls = normalizeImageUrls(product?.imageUrls);
-            const nextKeep = Array.isArray(draftKeepImageUrls) ? draftKeepImageUrls : [];
-            const hasNewImages = Array.isArray(draftNewImages) && draftNewImages.length > 0;
+            const nextKeep = draftKeepImageUrls;
+            const newImageFiles = draftNewImages.map((x) => x.file).filter(Boolean);
+            const hasNewImages = newImageFiles.length > 0;
+
+            // Detect changes vs baseline
             const imagesChanged =
                 hasNewImages ||
                 JSON.stringify(nextKeep) !== JSON.stringify(baselineImageUrls);
+
+            // Final guard: require at least one image in the outgoing set
+            const nextImagesCount = nextKeep.length + newImageFiles.length;
+            if (imagesChanged && nextImagesCount === 0) {
+                throw new Error("At least one image is required");
+            }
 
             const patch = {};
             if (nextName !== String(baseline.name ?? "")) patch.name = nextName;
@@ -432,10 +443,6 @@ export default function ProductDetailsClient({ productId }) {
 
             let res;
             if (imagesChanged) {
-                if (nextKeep.length === 0 && !hasNewImages) {
-                    throw new Error("At least one image is required");
-                }
-
                 const fd = new FormData();
                 // Only send fields that changed.
                 if (patch.name !== undefined) fd.set("name", patch.name);
@@ -446,7 +453,7 @@ export default function ProductDetailsClient({ productId }) {
                 if (patch.attributes !== undefined) fd.set("attributes", patch.attributes == null ? "" : JSON.stringify(patch.attributes));
 
                 fd.set("keepImageUrls", JSON.stringify(nextKeep));
-                for (const f of draftNewImages.map((x) => x.file).filter(Boolean)) {
+                for (const f of newImageFiles) {
                     fd.append("images", f);
                 }
 
@@ -479,6 +486,12 @@ export default function ProductDetailsClient({ productId }) {
                 { revalidate: false }
             );
             await mutate(`/api/products/${encodeURIComponent(safeProductId)}`, { product: updated }, { revalidate: false });
+
+            // Refresh detail + list caches
+            await Promise.all([
+                mutate(`/api/products/${encodeURIComponent(safeProductId)}`),
+                mutate("/api/products"),
+            ]);
 
             cancelEditMode();
         } catch (e) {
@@ -867,7 +880,9 @@ export default function ProductDetailsClient({ productId }) {
                                                 <Label htmlFor="edit-images">Add images</Label>
                                                 <input
                                                     ref={(el) => {
-                                                        imagesInputRef.current = el;
+                                                        if (el && !fileInputRef.current) {
+                                                            fileInputRef.current = el;
+                                                        }
                                                     }}
                                                     id="edit-images"
                                                     type="file"
@@ -875,7 +890,23 @@ export default function ProductDetailsClient({ productId }) {
                                                     multiple
                                                     disabled={isSaving}
                                                     className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 shadow-sm outline-none ring-0 focus:border-indigo-500 focus:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
-                                                    onChange={onPickNewImages}
+                                                    onChange={(e) => {
+                                                        const picked = Array.from(e.target.files || []);
+                                                        if (picked.length > 0) {
+                                                            setDraftNewImages((prev) => {
+                                                                const prevKeys = new Set(prev.map((x) => x.id));
+                                                                const added = picked
+                                                                    .filter((f) => !prevKeys.has(f.name + f.size + f.lastModified))
+                                                                    .map((file) => ({
+                                                                        id: file.name + file.size + file.lastModified,
+                                                                        file,
+                                                                        url: URL.createObjectURL(file),
+                                                                    }));
+                                                                return [...prev, ...added];
+                                                            });
+                                                            e.target.value = "";
+                                                        }
+                                                    }}
                                                 />
                                             </div>
                                         </div>
